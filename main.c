@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#define MAX_MATRIX_SIZE 100
+#define MAX_MATRIX_SIZE 1200
 
 typedef enum LIFE {DEAD, LIVE} LIFE;
 
@@ -38,29 +38,34 @@ int main() {
 
     Matrix *matrix = (Matrix *)malloc(sizeof(Matrix));
     setMatrix(fd, matrix);
-
+    printf("Matrix Size : x[%d] y[%d]\n", matrix->xsize, matrix->ysize);
     char mode = getMainInput();
     int loop;
-    
+        
+    printf("Input Loop Count\n");
+    printf("\033[0;32mCell_Matrix_Game\033[0m# ");
     scanf("%d", &loop);
-
     struct timeval starttime, endtime;
     if(mode == '1') {
+        return 0;
+    } else if(mode == '2') {
         gettimeofday(&starttime, NULL);
         for(int i = 1; i <= loop; i++) {
-            //printf("%d generation\n", i);
+            printf("%d generation\n", i);
             nextGen(matrix);
             //printMatrix(matrix);
             writeMatrix(matrix, i);
         }
         gettimeofday(&endtime, NULL);
-    } else if(mode == '2') {
+    } else if(mode == '3') {
         int process;
+        printf("Input Process Count\n");
+        printf("\033[0;32mCell_Matrix_Game\033[0m# ");
         scanf("%d", &process);
         
         gettimeofday(&starttime, NULL);
         for(int i = 1; i <= loop; i++) {
-            //printf("%d generation\n", i);
+            printf("%d generation\n", i);
             nextGenP(matrix, process);
             //printMatrix(matrix);
             writeMatrix(matrix, i);
@@ -83,7 +88,7 @@ char getMainInput() {
     printf("[3] Multi-Processing\n");
     printf("[4] Multi Threading\n\n");
 
-    printf("ANS%%");
+    printf("\033[0;32mCell_Matrix_Game\033[0m# ");
 
     char c;
     scanf("%c", &c);
@@ -110,7 +115,6 @@ void setMatrix(int fd, Matrix* matrix) {
         }
         buf[j][i] = c - 48;
     }
-    printf("%d %d\n", i, j);
 
     int **temp;
     temp = (int **)malloc(sizeof(int *) * (j + 2));
@@ -187,6 +191,11 @@ void nextGenP(Matrix* matrix, int processCount) {
         divider[i] = divider[i - 1] + matrix->ysize/processCount + ((i - 1) >= processCount - matrix->ysize%processCount ? 1 : 0);
     }
 
+    for(int i = 0; i <= processCount; i++) {
+        printf("[%d] ", divider[i]);
+    }
+    printf("\n");
+
     // Pipe를 생성한다.
     pipe(pipe_fd);
 
@@ -200,7 +209,7 @@ void nextGenP(Matrix* matrix, int processCount) {
     // 0번째 프로세스부터 processCount - 1번째 프로세스까지 각각 처리할 업무를 준다.
     for(int n = 0; n < processCount; n++) {
         if(pid[n] == 0) {
-            
+            printf("%d: Process %d Started\n", n, getpid());
             // 자신의 프로세스 번호에 맞는 처리해야 하는 행을 찾는다.
             for(int i = divider[n]; i < divider[n + 1]; i++) {
 
@@ -211,10 +220,13 @@ void nextGenP(Matrix* matrix, int processCount) {
                     else if (matrix->table[i + 1][j + 1] == DEAD) buf[i][j] = rule2(matrix, i + 1, j + 1);
                 }
                 // 파이프를 통해서 해당 배열을 넘긴다.
+                printf("%d: Starts loop %d/%d\n",n, i, divider[n + 1]);
                 write(pipe_fd[1], buf[i], sizeof(int) * matrix->xsize);
+                printf("%d: Finishes loop %d/%d - %d %d %d %d %d %d\n",n, i, divider[n + 1], buf[i][0], buf[i][1], buf[i][2], buf[i][3], buf[i][4], buf[i][5]);
             }
 
             // 다 했으면 해당 프로세스를 종료한다.
+            printf("%d: Process %d Finished its job\n", n, getpid());
             exit(0);
             break;
         }
@@ -228,15 +240,16 @@ void nextGenP(Matrix* matrix, int processCount) {
     
     // 부모 프로세스가 처리해야하는 업무
     if(allPid > 0) {
-        
+        printf("Starts job for parents\n");
         for(int i = 0; i < processCount; i++) {
             int status, retval;
-
             for(int k = divider[i]; k < divider[i + 1]; k++) {
                 read(pipe_fd[0], buf[k], sizeof(int) * matrix->xsize);
+                printf("Parent: read buffer array[%d] - %d %d %d %d %d %d\n", k, buf[k][0], buf[k][1], buf[k][2], buf[k][3], buf[k][4], buf[k][5]);
             }
+            printf("waiting %d is finished\n", pid[i]);
             retval = waitpid(pid[i], &status, 0);
-
+            printf("%d is finished\n", pid[i]);
             /*
             for(int j = divider[i]; j < divider[i + 1]; j++) {
                 for(int k = 0; k < matrix->xsize; k++) {
