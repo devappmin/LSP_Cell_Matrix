@@ -41,6 +41,8 @@ void nextGenP(Matrix* matrix, int processCount);
 void nextGen(Matrix* matrix);
 int getIntegerCipher(int input);
 
+int mbuff[MAX_MATRIX_SIZE][MAX_MATRIX_SIZE] = {{0, 0}};
+
 int main() {
     int fd;
 
@@ -118,14 +120,14 @@ int main() {
 }
 
 void printMainInfo() {
-    printf("\n\n\nCell Matrix Game Main Title\n");
+    printf("\nCell Matrix Game Main Title\n");
     printf("Linux System Programming & Practice\n");
     printf("2021-1 Design Assignment\n");
-    printf("20172608 Kim Seung Hwan\n\n\n");
+    printf("20172608 Kim Seung Hwan\n\n");
     printf("[1] Quit\n");
     printf("[2] Sequential Processing\n");
     printf("[3] Multi-Processing\n");
-    printf("[4] Multi Threading\n\n");
+    printf("[4] Multi Threading\n");
 }
 
 char getMainInput() {
@@ -156,7 +158,6 @@ int getPTCount(bool isThread) {
 
 void setMatrix(int fd, Matrix* matrix) {
     int i = 1, j = 1;
-    int buf[MAX_MATRIX_SIZE][MAX_MATRIX_SIZE] = {{0, 0}};
 
     lseek(fd, 0, SEEK_SET);
     
@@ -173,7 +174,7 @@ void setMatrix(int fd, Matrix* matrix) {
             i = 1;
             continue;
         }
-        buf[j][i] = c - 48;
+        mbuff[j][i] = c - 48;
     }
 
     int **temp;
@@ -184,12 +185,14 @@ void setMatrix(int fd, Matrix* matrix) {
 
     for(int k = 0; k < j + 2; k++) {
         for(int l = 0; l < i + 2; l++) {
-            temp[k][l] = buf[k][l];
+            temp[k][l] = mbuff[k][l];
         }
     }
     matrix->table = temp;
     matrix->xsize = i;
     matrix->ysize = j;
+
+    memset(mbuff, 0, sizeof(mbuff));
 }
 
 void writeMatrix(Matrix* matrix, int gen, int max) {
@@ -254,7 +257,7 @@ void *threadJob(void *arg) {
 
 void nextGenT(Matrix* matrix, int threadCount) {
     int rc;
-    int buf[MAX_MATRIX_SIZE][MAX_MATRIX_SIZE] = {{0, 0}};
+
     pthread_t* tid = (pthread_t *)malloc(sizeof(pthread_t) * threadCount);
     ThreadData* tdata = (ThreadData *)malloc(sizeof(ThreadData) * threadCount);
     int* divider = (int *)malloc(sizeof(int) * (threadCount + 1));
@@ -282,19 +285,18 @@ void nextGenT(Matrix* matrix, int threadCount) {
 
         for(int j = divider[i]; j < divider[i + 1]; j++) {
             for(int k = 0; k < matrix->xsize; k++) {
-                buf[j][k] = buf2[j - divider[i]][k];
+                mbuff[j][k] = buf2[j - divider[i]][k];
             }
         }
     }
 
     for(int i = 1; i <= matrix->ysize; i++) {
         for(int j = 1; j <= matrix->xsize; j++) {
-            matrix->table[i][j] = buf[i - 1][j - 1];
+            matrix->table[i][j] = mbuff[i - 1][j - 1];
         }
     }
-    
-    //pthread_exit(NULL);
-    
+
+    memset(mbuff, 0, sizeof(mbuff));
 }
 
 void nextGenP(Matrix* matrix, int processCount) {
@@ -337,7 +339,7 @@ void nextGenP(Matrix* matrix, int processCount) {
 
             // 자신의 프로세스 번호에 맞는 처리해야 하는 행을 찾는다.
             for(int i = divider[n]; i < divider[n + 1]; i++) {
-                int buf[MAX_MATRIX_SIZE];
+                int* buf = (int *)malloc(sizeof(int) * (matrix->xsize + 2));
                 buf[0] = i;
                 // 해당 행의 값들을 각각 불러온다.
                 for(int j = 0; j < matrix->xsize; j++) {
@@ -363,10 +365,14 @@ void nextGenP(Matrix* matrix, int processCount) {
     // 부모 프로세스가 처리해야하는 업무
     if(allPid > 0) {
         // 수정된 Matrix의 값을 저장하기 위한 버퍼
-        int buf[MAX_MATRIX_SIZE][MAX_MATRIX_SIZE] = {{0, 0}};
+        //int** buf = (int **)malloc(sizeof(int *) * matrix->ysize);
+        //for(int i = 0; i < matrix->xsize; i++) {
+        //    buf[i] = (int *)malloc(sizeof(int) * matrix->xsize);
+        //}
+        int buf[matrix->ysize][matrix->xsize];
 
         for(int i = 0; i < matrix->ysize; i++) {
-            int buf2[MAX_MATRIX_SIZE];
+            int* buf2 = (int *)malloc(sizeof(int) * (matrix->xsize + 1));
             read(pipe_fd[0], buf2, sizeof(int) * (matrix->xsize + 1));
             
             for(int j = 0; j < matrix->xsize; j++) {
